@@ -16,3 +16,6 @@ val_masks/
 
 # Don't upload weights:
 **/*.pth
+
+# no need for .idea
+.idea*
