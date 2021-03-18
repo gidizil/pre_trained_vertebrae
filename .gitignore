@@ -7,6 +7,12 @@ mid_img_train/
 mid_img_val/
 mid_msk_train/
 mid_msk_val/
+test_images/
+test_masks/
+train_images/
+train_masks/
+val_images/
+val_masks/
 
 # Don't upload weights:
 **/*.pth

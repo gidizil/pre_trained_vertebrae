@@ -7,9 +7,9 @@ import shutil
 import pandas as pd
 
 # Set what you want to do:
-get_scan_slices = True
+get_scan_slices = False
 masks = False
-gen_df = False
+gen_df = True
 connected_comps = False
 gen_train_val = False
 bin_age = False

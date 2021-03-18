@@ -1,11 +1,14 @@
 import os
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from PIL import Image
 import numpy as np
 import pandas as pd
 import cv2
 from collections import OrderedDict
+import shutil
+import numpy as np
+
 
 class VertebraeDataset(Dataset):
     """Dataloader that can used for both segmentation ans SSL training"""
@@ -135,10 +138,11 @@ class VertebraeDataset2(Dataset):
     ):
         self.ids = os.listdir(images_dir)
         self.images_fps = [os.path.join(images_dir, image_id) for image_id in self.ids]
-        # TODO: Do not take mask if not necessary
-        self.masks_fps = [os.path.join(masks_dir, image_id) for image_id in self.ids]
         self.images_fps.sort()
-        self.masks_fps.sort()
+        self.masks_dir = masks_dir
+        if self.masks_dir is not None:
+            self.masks_fps = [os.path.join(masks_dir, image_id) for image_id in self.ids]
+            self.masks_fps.sort()
 
         self.age = age
         self.gender = gender
@@ -154,17 +158,20 @@ class VertebraeDataset2(Dataset):
 
         # read data
         image = cv2.imread(self.images_fps[idx], 0)  # '0' for grayscale
-        mask = cv2.imread(self.masks_fps[idx], 0)
-        ret, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+        if self.masks_dir is not None:
+            mask = cv2.imread(self.masks_fps[idx], 0)
+            ret, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
 
         # resize it:
         image = cv2.resize(image, (224, 224), interpolation=cv2.INTER_NEAREST_EXACT)
-        mask = cv2.resize(mask, (224, 224), interpolation=cv2.INTER_NEAREST_EXACT)
-        mask = mask / 255.0
+        if self.masks_dir is not None:
+            mask = cv2.resize(mask, (224, 224), interpolation=cv2.INTER_NEAREST_EXACT)
+            mask = mask / 255.0
 
         # Make it in the proper format:
         image = np.expand_dims(image, 0)
-        mask = np.expand_dims(mask, 0)
+        if self.masks_dir is not None:
+            mask = np.expand_dims(mask, 0)
 
         # extract certain classes from mask (e.g. cars)
         # masks = [(mask == v) for v in self.class_values]
@@ -174,11 +181,13 @@ class VertebraeDataset2(Dataset):
         # print(mask.squeeze().shape)
 
         # apply augmentations
+        # TODO: Not active at the moment
         if self.augmentation:
             sample = self.augmentation(image=image, mask=mask)
             image, mask = sample['image'], sample['mask']
 
         # apply preprocessing
+        # TODO: Not active at the moment
         if self.preprocessing:
             sample = self.preprocessing(image=image, mask=mask)
             image, mask = sample['image'], sample['mask']
@@ -188,10 +197,10 @@ class VertebraeDataset2(Dataset):
             df = pd.read_csv('scans_self_data.csv')
             patient_id = self.images_fps[idx].split('/')[-1].split('.')[0].split('_')[0]
         if self.age:
-            age = [df[df.name == 'image' + patient_id]['age_binned'].tolist()[0]]
+            age = [df[df.name == patient_id]['age_binned'].tolist()[0]]
 
         if self.gender:
-            gender = [df[df.name == 'image' + patient_id]['gender'].tolist()[0]]
+            gender = [df[df.name == patient_id]['gender'].tolist()[0]]
 
         # TODO: Make this nicer using flags dict
         if self.gender and self.age and self.decoder:
@@ -267,24 +276,142 @@ class Utils:
 
         return custom_enc_weights
 
-    def gen_train_val_dirs(self, train_type, k):
+    @staticmethod
+    def gen_train_val_test_dirs(train_type, k=None):
         """
-
         :param train_type: str. if 'cls_only' can use all train data. else dependent on k.
         :param k: int. number of images to use for segmentation
         :return: None. generate necassery folders
         """
-        # TODO: generate the proper train and validation data with folders
         # Images 13,14,15 are constantly test data. 1-12, 16-25 plays
+        TEST_IMAGES = ('image013', 'image014', 'image015')
+        TEST_MASKS = ('mask013', 'mask014', 'mask015')
+        # 1. Set Test data to always evaluate against - keep images 13,14,15 (40 slices each) for test
+        if not os.path.exists('test_images'):
+            os.makedirs('test_images')
+            for img in os.listdir('images'):
+                if img.startswith(TEST_IMAGES):
+                    src = 'images/' + img
+                    dst = 'test_images/' + img
+                    shutil.copyfile(src, dst)
+
+        if not os.path.exists('test_masks'):
+            os.makedirs('test_masks')
+            for msk in os.listdir('binary_masks'):
+                if msk.startswith(TEST_MASKS):
+                    src = 'binary_masks/' + msk
+                    dst = 'test_masks/' + msk
+                    shutil.copyfile(src, dst)
+
+        # TODO: generate the proper train and validation data with folders
+        if not os.path.exists('train_images'):
+            os.makedirs('train_images')
+            if train_type == 'segmentation':
+                os.makedirs('train_masks')
+        else:
+            raise Exception('train_images directory already exists. please delete it')
+
+        if not os.path.exists('val_images'):
+            os.makedirs('val_images')
+            if train_type == 'segmentation':
+                os.makedirs('val_masks')
+        else:
+            raise Exception('val_images directory already exists. please delete it')
+
         if train_type == 'cls_only':
-            # generate the following data folders:
-            # cls_train, cls_validation, seg_train, seg_validation
-            pass
+            # Randomly split images to train and validation
+            img_strt_names = ['image00' + str(idx) for idx in range(1, 10)] + \
+                             ['image0' + str(idx) for idx in range(10, 13)] + \
+                             ['image0' + str(idx) for idx in range(16, 26)]
+
+            img_strt_names = np.array(img_strt_names)  # To extract multiple indices
+            images_indices = range(len(img_strt_names))
+            train_indices = np.random.choice(images_indices, size=17, replace=False)
+            train_img_strt = img_strt_names[train_indices]
+            val_img_strt = np.delete(img_strt_names, train_indices)
+
+            cls_images = [img_name for img_name in os.listdir('images')
+                          if not img_name.startswith(TEST_IMAGES)]
+            for img in cls_images:
+                if img.startswith(tuple(train_img_strt)):
+                    src = 'images/' + img
+                    dst = 'train_images/' + img
+                    shutil.copyfile(src, dst)
+                elif img.startswith(tuple(val_img_strt)):
+                    src = 'images/' + img
+                    dst = 'val_images/' + img
+                    shutil.copyfile(src, dst)
+                else:
+                    raise ValueError('img name - {} is deformed'.format(img))
 
         elif train_type == 'segmentation':
-            pass
+            img_strt_names = ['image00' + str(idx) for idx in range(1, 10)] + \
+                             ['image0' + str(idx) for idx in range(10, 13)]
+
+            msk_strt_names = ['mask00' + str(idx) for idx in range(1, 10)] + \
+                             ['mask0' + str(idx) for idx in range(10, 13)]
+
+            img_strt_names = np.array(img_strt_names)  # To extract multiple indices
+            msk_strt_names = np.array(msk_strt_names)
+            image_indices = range(len(img_strt_names))
+            train_indices = np.random.choice(image_indices, size=k, replace=False)
+            train_img_strt = img_strt_names[train_indices]
+            val_img_strt = np.delete(img_strt_names, train_indices)
+
+            train_msk_strt = msk_strt_names[train_indices]
+            val_msk_strt = np.delete(msk_strt_names, train_indices)
+
+            seg_images = [img_name for img_name in os.listdir('images')
+                          if img_name.startswith(tuple(img_strt_names))]
+            seg_masks = [msk_name for msk_name in os.listdir('binary_masks')
+                         if msk_name.startswith(tuple(msk_strt_names))]
+
+            for img in seg_images:
+                if img.startswith(tuple(train_img_strt)):
+                    src = 'images/' + img
+                    dst = 'train_images/' + img
+                    shutil.copyfile(src, dst)
+                elif img.startswith(tuple(val_img_strt)):
+                    src = 'images/' + img
+                    dst = 'val_images/' + img
+                    shutil.copyfile(src, dst)
+                else:
+                    raise ValueError('img name - {} is deformed'.format(img))
+
+            for msk in seg_masks:
+                if msk.startswith(tuple(train_msk_strt)):
+                    src = 'binary_masks/' + msk
+                    dst = 'train_masks/' + msk
+                    shutil.copyfile(src, dst)
+                elif msk.startswith(tuple(val_msk_strt)):
+                    src = 'binary_masks/' + msk
+                    dst = 'val_masks/' + msk
+                    shutil.copyfile(src, dst)
+                else:
+                    raise ValueError('msk name - {} is deformed'.format(msk))
+
         else:
             raise ValueError("train_type must be 'cls_only' or 'segmentation")
 
-
+    @staticmethod
+    def rm_train_val_dirs(train_type):
+        """
+        remove training and validation folders at the end of training
+        :param train_type: str. 'cls_only' or 'segmentation
+        :return: None. Removes the train and validation data directories after training
+        """
+        if os.path.exists('train_images'):
+            shutil.rmtree('train_images')
+        if os.path.exists('val_images'):
+            shutil.rmtree('val_images')
+        # TODO: probably unnecessary - consider removing
+        if train_type == 'cls_only':
+            pass
+        elif train_type == 'segmentation':
+            if os.path.exists('train_masks'):
+                shutil.rmtree('train_masks')
+            if os.path.exists('val_masks'):
+                shutil.rmtree('val_masks')
+        else:
+            raise ValueError("train_type should be 'cls_only' or 'segmentation'")
 

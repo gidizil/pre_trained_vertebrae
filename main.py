@@ -16,7 +16,7 @@ import segmentation_models_pytorch as smp
 train_plain_unet = False
 plain_unet_weights = None  # Can be None or 'imagenet'
 
-train_unet_cls = False
+train_unet_cls = True
 train_unet_multi = False
 
 set_new_encoder = True
@@ -26,20 +26,29 @@ dec_multi_encoder = True
 
 train_unet_multi_w_decoder = False
 
-gender = False
+gender = True
 age = False
 decoder = False
 
 # 1. Device:
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# 2. Data:
-# TODO: Support for age and gender - currently manually changed according to needs
-train_data = VertebraeDataset2(images_dir='mid_img_train', masks_dir='mid_msk_train',
+# 2. Data - Set data according to train_type:
+if train_unet_cls or train_unet_multi:
+    data_utils.rm_train_val_dirs(train_type='cls_only')  # get rid of old data if exists
+
+    train_masks_dir, val_masks_dir = None, None
+    data_utils.gen_train_val_test_dirs('cls_only', k=None) # get rid of old data if exists
+else:
+    data_utils.rm_train_val_dirs(train_type='segmentation')
+    train_masks_dir, val_masks_dir = 'train_masks', 'val_masks'
+    data_utils.gen_train_val_test_dirs('segmentation', k=4)
+
+train_data = VertebraeDataset2(images_dir='train_images', masks_dir=train_masks_dir,
                                age=age, gender=gender, decoder=decoder, classes=["verte"])
 train_loader = DataLoader(train_data, batch_size=4, shuffle=True, num_workers=0)
 
-val_data = VertebraeDataset2(images_dir='mid_img_val', masks_dir='mid_msk_val',
+val_data = VertebraeDataset2(images_dir='val_images', masks_dir=val_masks_dir,
                              age=age, gender=gender, decoder=decoder, classes=["verte"])
 val_loader = DataLoader(val_data, batch_size=1, shuffle=True, num_workers=0)
 
@@ -128,9 +137,6 @@ if set_new_encoder:
         print('\nEpoch: {}'.format(idx))
         train_logs = train_epoch.run(train_loader)
         val_logs = val_epoch.run(val_loader)
-
-
-
 
 
 
