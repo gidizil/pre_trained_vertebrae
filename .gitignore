@@ -9,4 +9,4 @@ mid_msk_train/
 mid_msk_val/
 
 # Don't upload weights:
-*.pth
+**/*.pth

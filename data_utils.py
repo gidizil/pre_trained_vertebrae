@@ -278,7 +278,7 @@ class Utils:
         # Images 13,14,15 are constantly test data. 1-12, 16-25 plays
         if train_type == 'cls_only':
             # generate the following data folders:
-            # cls_train, cls_validation, seg_train, seg_validation 
+            # cls_train, cls_validation, seg_train, seg_validation
             pass
 
         elif train_type == 'segmentation':
