@@ -7,3 +7,6 @@ mid_img_train/
 mid_img_val/
 mid_msk_train/
 mid_msk_val/
+
+# Don't upload weights:
+*.pth
