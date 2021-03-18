@@ -1,0 +1,9 @@
+# Disregard image folders
+images/
+masks/
+binary_masks/
+fixed_masks/
+mid_img_train/
+mid_img_val/
+mid_msk_train/
+mid_msk_val/

@@ -1,0 +1,35 @@
+Things To Do:
+1. Be able to train basic Unet - Done
+2. Fix mask using Connected Componenents - Done (Used binary
+2. Train and validation for basic Unet - Done
+3. Add augmentations -
+4. Train Same encoder with Classification head - Done
+5. Train Encoder & Decoder on 5.
+
+Put pre-trained weights Here:
+=============================
+/Users/gzilbar/.cache/torch/hub/checkpoints/resnet18-5c106cde.pth
+
+# Setups - Currently considering resnet-34 and fixed learning regime
+==========================================
+
+1. Train a basic Unet from scratch - DONE
+
+2. Train a basic Unet using pre-trained 'imagenet' weights - DONE
+
+3. Train Unet in Two Steps (V1):
+    A. Train the encoder with a classification head on gender - keep encoder weights - DONE
+    B Train a basic Unet using pre-trained encoder_cls weights - DONE
+
+3. Train Unet in Two Steps (V2):
+    A. Train the encoder with a multi-task classification head on gender and age  - keep encoder weights
+    B Train a basic Unet using pre-trained encoder_cls weights - DONE
+
+4. Train Unet and Classification Combined (V1):
+    Train segmentation and classification together  - from scratch - DONE
+
+5. Train Unet and Classification Combined (V2):
+    Train segmentation and classification together - using encoder weights from 3 (A or B)
+
+
+
