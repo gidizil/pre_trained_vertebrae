@@ -18,4 +18,4 @@ val_masks/
 **/*.pth
 
 # no need for .idea
-.idea*
+.idea/*
