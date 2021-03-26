@@ -9,10 +9,10 @@ import pandas as pd
 # Set what you want to do:
 get_scan_slices = False
 masks = False
-gen_df = True
+gen_df = False
 connected_comps = False
 gen_train_val = False
-bin_age = False
+bin_age = True
 
 # 1. Generating 2D slices from 3D scans
 if get_scan_slices:

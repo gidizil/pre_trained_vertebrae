@@ -83,7 +83,7 @@ class UNetModel:
         # TODO: Add Focal Loss
 
         self.optimizer = torch.optim.Adam([
-            dict(params=self.model.parameters(), lr=self.lr),
+            dict(params=self.model.parameters(), lr=self.lr, weight_decay=0.01),
         ])
 
         # TODO: Make this configurable
@@ -267,6 +267,8 @@ class TrainEncoderClassifier:
             optimizer = optim.Adam(self.model.parameters(), lr=lr_rate)
         elif optimizer == 'sgd':
             optimizer = optim.SGD(self.model.parameters(), lr=lr_rate)
+        elif optimizer == 'adamW':
+            optimizer = optim.AdamW(self.model.parameters(), lr=lr_rate)
         else:
             raise ValueError('{} is not a supported optimizer'.format(optimizer))
 
@@ -374,9 +376,11 @@ class TrainEncoderMultiTask:
         optimizer = params_dict.get('optimizer', 'adam')
         # TODO: Add optimization kwargs
         if optimizer == 'adam':
-            optimizer = optim.Adam(self.model.parameters(), lr=lr_rate)
+            optimizer = optim.Adam(self.model.parameters(), lr=lr_rate, weight_decay=0.01)
         elif optimizer == 'sgd':
             optimizer = optim.SGD(self.model.parameters(), lr=lr_rate)
+        elif optimizer == 'adamW':
+            optimizer = optim.AdamW(self.model.parameters(), lr=lr_rate)
         else:
             raise ValueError('{} is not a supported optimizer'.format(optimizer))
 
@@ -404,7 +408,8 @@ class TrainEncoderMultiTask:
                     loss_2 = criterion(output_2, labels_2)
 
                     # TODO: Consider adding weights
-                    loss = (loss_1 + loss_2) / 2  # Keeping in proportional
+                    # loss = 0.5 * loss_1 + 0.5 * loss_2
+                    loss = 0.7 * loss_1 + 0.3 * loss_2  # Keeping in proportions
                     loss.backward()
                     optimizer.step()
 
@@ -426,7 +431,8 @@ class TrainEncoderMultiTask:
                     # 3. Compute loss
                     loss_1 = criterion(output_1, labels_1)
                     loss_2 = criterion(output_2, labels_2)
-                    loss = (loss_1 + loss_2) / 2  # Keeping in proportional
+                    # loss = 0.5 * loss_1 + 0.5 * loss_2
+                    loss = 0.65 * loss_1 + 0.35 * loss_2  # Keeping in proportions
 
                     # keep running loss:
                     val_loss += loss.item()
